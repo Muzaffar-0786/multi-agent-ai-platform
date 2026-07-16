@@ -1,26 +1,53 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
-# =====================================================
+# ==========================================================
 # User Schemas
-# =====================================================
+# ==========================================================
 
 class UserCreate(BaseModel):
-    username: str = Field(..., min_length=3, max_length=50)
+    """
+    User registration schema.
+    """
+
+    username: str = Field(
+        ...,
+        min_length=3,
+        max_length=50,
+    )
+
     email: EmailStr
-    password: str = Field(..., min_length=8, max_length=128)
+
+    password: str = Field(
+        ...,
+        min_length=8,
+        max_length=128,
+    )
 
 
 class UserLogin(BaseModel):
+    """
+    User login schema.
+    """
+
     email: EmailStr
+
     password: str
 
 
 class UserResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    """
+    Public user response.
+    """
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
     id: int
     username: str
@@ -29,45 +56,81 @@ class UserResponse(BaseModel):
     created_at: datetime
 
 
-# =====================================================
-# JWT Schemas
-# =====================================================
+# ==========================================================
+# Authentication Schemas
+# ==========================================================
 
-class Token(BaseModel):
+class TokenResponse(BaseModel):
+    """
+    JWT token response.
+    """
+
     access_token: str
+
     token_type: str = "bearer"
 
 
-class TokenData(BaseModel):
+class TokenPayload(BaseModel):
+    """
+    JWT decoded payload.
+    """
+
     user_id: Optional[int] = None
 
 
-# =====================================================
+# ==========================================================
 # Conversation Schemas
-# =====================================================
+# ==========================================================
 
 class ConversationCreate(BaseModel):
-    title: Optional[str] = "New Conversation"
+    """
+    Create new conversation.
+    """
+
+    title: str = Field(
+        default="New Conversation",
+        max_length=255,
+    )
 
 
 class ConversationResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    """
+    Conversation output.
+    """
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
     id: int
     title: str
     user_id: int
     created_at: datetime
-  # =====================================================
+    # ==========================================================
 # Message Schemas
-# =====================================================
+# ==========================================================
 
 class MessageCreate(BaseModel):
+    """
+    Create chat message.
+    """
+
     conversation_id: int
-    content: str = Field(..., min_length=1)
+
+    content: str = Field(
+        ...,
+        min_length=1,
+    )
 
 
 class MessageResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    """
+    Message output.
+    """
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
     id: int
     conversation_id: int
@@ -76,50 +139,86 @@ class MessageResponse(BaseModel):
     created_at: datetime
 
 
-# =====================================================
+# ==========================================================
 # Chat Schemas
-# =====================================================
+# ==========================================================
 
 class ChatRequest(BaseModel):
+    """
+    User AI request.
+    """
+
     conversation_id: int
-    prompt: str = Field(..., min_length=1)
+
+    prompt: str = Field(
+        ...,
+        min_length=1,
+    )
 
 
 class ChatResponse(BaseModel):
+    """
+    Complete AI pipeline response.
+    """
+
     conversation_id: int
+
     user_message: str
-    ai_response: str
-    planner_output: str
-    research_output: str
-    coding_output: str
-    reviewer_output: str
+
+    final_response: str
+
+    planner_output: Optional[str] = None
+
+    research_output: Optional[str] = None
+
+    coding_output: Optional[str] = None
+
+    reviewer_output: Optional[str] = None
 
 
-# =====================================================
+# ==========================================================
 # Agent Log Schemas
-# =====================================================
+# ==========================================================
 
 class AgentLogResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    """
+    Agent execution log output.
+    """
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
     id: int
     conversation_id: int
     agent_name: str
+    step_number: int
     status: str
     input_text: str
     output_text: str
+    execution_time: float
     created_at: datetime
 
 
-# =====================================================
+# ==========================================================
 # Common Response Schemas
-# =====================================================
+# ==========================================================
 
 class SuccessResponse(BaseModel):
+    """
+    Common success response.
+    """
+
     success: bool = True
+
     message: str
 
 
 class ErrorResponse(BaseModel):
+    """
+    Common error response.
+    """
+
     success: bool = False
+
     error: str
