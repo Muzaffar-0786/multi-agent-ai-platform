@@ -6,53 +6,52 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """
-    Global application settings.
-    Values are loaded from the .env file.
+    Global application configuration.
+
+    Values are automatically loaded
+    from the .env file.
     """
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        case_sensitive=True,
     )
 
-    # =========================
+    # ==================================================
     # Application
-    # =========================
+    # ==================================================
 
     APP_NAME: str = "Multi-Agent AI Platform"
-    APP_VERSION: str = "1.0.0"
-    DEBUG: bool = False
 
-    # =========================
-    # API
-    # =========================
+    APP_VERSION: str = "1.0.0"
+
+    DEBUG: bool = False
 
     API_PREFIX: str = "/api"
 
-    # =========================
+    # ==================================================
     # Database
-    # =========================
+    # ==================================================
 
-    DATABASE_URL: str = Field(
-        default="sqlite:///multi_agent.db"
-    )
+    DATABASE_URL: str = "sqlite:///multi_agent.db"
 
-    # =========================
-    # JWT
-    # =========================
+    # ==================================================
+    # Authentication
+    # ==================================================
 
     SECRET_KEY: str = Field(
-        default="CHANGE_THIS_SECRET_KEY_IN_PRODUCTION"
+        default="CHANGE_ME_IN_PRODUCTION"
     )
 
     ALGORITHM: str = "HS256"
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
-    # =========================
-    # Gemini
-    # =========================
+    # ==================================================
+    # Gemini AI
+    # ==================================================
 
     GEMINI_API_KEY: str = ""
 
@@ -62,20 +61,21 @@ class Settings(BaseSettings):
 
     MAX_OUTPUT_TOKENS: int = 2048
 
-    # =========================
-    # Agent Configuration
-    # =========================
+    # ==================================================
+    # Agent Settings
+    # ==================================================
 
-    MAX_AGENT_ITERATIONS: int = 5
+    MAX_AGENT_STEPS: int = 4
 
-    ENABLE_LOGS: bool = True
+    ENABLE_AGENT_LOGS: bool = True
 
 
 @lru_cache
 def get_settings() -> Settings:
     """
-    Returns a cached Settings object.
+    Return cached application settings.
     """
+
     return Settings()
 
 
