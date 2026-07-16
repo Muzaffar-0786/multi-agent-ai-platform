@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -17,6 +20,10 @@ from database import Base
 
 
 class User(Base):
+    """
+    Application User Model
+    """
+
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(
@@ -47,21 +54,31 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         default=True,
+        nullable=False,
     )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
+        nullable=False,
     )
 
-    conversations = relationship(
+    conversations: Mapped[list["Conversation"]] = relationship(
         "Conversation",
-        back_populates="owner",
+        back_populates="user",
         cascade="all, delete-orphan",
     )
 
 
+    def __repr__(self) -> str:
+        return f"<User(id={self.id}, username={self.username})>"
+
+
 class Conversation(Base):
+    """
+    User Chat Conversation Model
+    """
+
     __tablename__ = "conversations"
 
     id: Mapped[int] = mapped_column(
@@ -73,98 +90,41 @@ class Conversation(Base):
     title: Mapped[str] = mapped_column(
         String(255),
         default="New Conversation",
+        nullable=False,
     )
 
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
+        index=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
+        nullable=False,
     )
 
-    owner = relationship(
+    user: Mapped["User"] = relationship(
         "User",
         back_populates="conversations",
     )
 
-    messages = relationship(
+    messages: Mapped[list["Message"]] = relationship(
         "Message",
         back_populates="conversation",
         cascade="all, delete-orphan",
     )
-class Message(Base):
-    __tablename__ = "messages"
 
-    id: Mapped[int] = mapped_column(
-        Integer,
-        primary_key=True,
-        index=True,
-    )
-
-    conversation_id: Mapped[int] = mapped_column(
-        ForeignKey("conversations.id"),
-        nullable=False,
-    )
-
-    role: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-    )
-
-    content: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-    )
-
-    conversation = relationship(
-        "Conversation",
-        back_populates="messages",
+    agent_logs: Mapped[list["AgentLog"]] = relationship(
+        "AgentLog",
+        back_populates="conversation",
+        cascade="all, delete-orphan",
     )
 
 
-class AgentLog(Base):
-    __tablename__ = "agent_logs"
-
-    id: Mapped[int] = mapped_column(
-        Integer,
-        primary_key=True,
-        index=True,
-    )
-
-    conversation_id: Mapped[int] = mapped_column(
-        ForeignKey("conversations.id"),
-        nullable=False,
-    )
-
-    agent_name: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False,
-    )
-
-    status: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-    )
-
-    input_text: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-    )
-
-    output_text: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-    )
+    def __repr__(self) -> str:
+        return f"<Conversation(id={self.id}, title={self.title})>"
