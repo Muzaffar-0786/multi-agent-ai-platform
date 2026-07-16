@@ -13,33 +13,31 @@ class GeminiClient:
     Professional Gemini AI Client.
 
     Responsibilities:
-    - Connect with Gemini API
+    - Connect Gemini API
     - Generate AI responses
     - Handle configuration
     - Provide safe AI calls
     """
 
     def __init__(self) -> None:
-
-        self.client = None
+        self.client: Optional[genai.Client] = None
         self.model = settings.GEMINI_MODEL
 
 
     def _initialize_client(self) -> None:
         """
-        Lazy initialization.
-
-        Client will only connect when
-        Gemini is actually used.
+        Lazy Gemini client initialization.
         """
 
-        if self.client is not None:
+        if self.client:
             return
+
 
         if not settings.GEMINI_API_KEY:
             raise ValueError(
                 "GEMINI_API_KEY is missing."
             )
+
 
         self.client = genai.Client(
             api_key=settings.GEMINI_API_KEY
@@ -48,7 +46,7 @@ class GeminiClient:
 
     def is_ready(self) -> bool:
         """
-        Check Gemini availability.
+        Check API key availability.
         """
 
         return bool(
@@ -63,9 +61,6 @@ class GeminiClient:
         temperature: Optional[float] = None,
         max_output_tokens: Optional[int] = None,
     ) -> GenerateContentConfig:
-        """
-        Build Gemini generation config.
-        """
 
         return GenerateContentConfig(
             system_instruction=system_instruction,
@@ -82,7 +77,9 @@ class GeminiClient:
                 else settings.MAX_OUTPUT_TOKENS
             ),
         )
-     def generate(
+
+
+    def generate(
         self,
         prompt: str,
         *,
@@ -94,13 +91,21 @@ class GeminiClient:
         Generate response from Gemini.
         """
 
+        if not prompt.strip():
+            raise ValueError(
+                "Prompt cannot be empty."
+            )
+
+
         self._initialize_client()
+
 
         config = self._build_config(
             system_instruction=system_instruction,
             temperature=temperature,
             max_output_tokens=max_output_tokens,
         )
+
 
         try:
 
@@ -110,19 +115,31 @@ class GeminiClient:
                 config=config,
             )
 
-            if response is None:
+
+            if not response:
                 return ""
 
-            if response.text:
-                return response.text.strip()
+
+            text = getattr(
+                response,
+                "text",
+                None
+            )
+
+
+            if text:
+                return text.strip()
+
 
             return ""
+
 
         except Exception as error:
 
             raise RuntimeError(
                 f"Gemini generation failed: {error}"
             ) from error
+
 
 
     def safe_generate(
@@ -132,10 +149,7 @@ class GeminiClient:
         system_instruction: Optional[str] = None,
     ) -> str:
         """
-        Safe Gemini call.
-
-        Returns empty string
-        instead of crashing.
+        Crash-safe Gemini generation.
         """
 
         try:
@@ -150,23 +164,33 @@ class GeminiClient:
             return ""
 
 
+
     def health_check(self) -> bool:
         """
-        Check Gemini connection.
+        Verify Gemini API working.
         """
+
+        if not self.is_ready():
+            return False
+
 
         try:
 
-            result = self.generate(
-                "Reply only: OK"
+            response = self.generate(
+                "Reply only with OK"
             )
 
-            return result.strip().upper() == "OK"
+            return (
+                response.strip().upper()
+                == "OK"
+            )
+
 
         except Exception:
 
             return False
 
 
-# Global Gemini Client
+
+# Singleton Gemini Client
 gemini_client = GeminiClient()
