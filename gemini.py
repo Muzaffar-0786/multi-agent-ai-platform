@@ -82,7 +82,7 @@ class GeminiClient:
                 else settings.MAX_OUTPUT_TOKENS
             ),
         )
-            def generate(
+    def generate(
         self,
         prompt: str,
         *,
