@@ -10,79 +10,77 @@ from config import settings
 
 class GeminiClient:
     """
-    Professional Gemini API Client.
+    Professional Gemini AI Client.
 
-    Responsibilities
-    ----------------
-    • Initialize Gemini
-    • Validate configuration
-    • Generate AI responses
-    • Health checking
+    Responsibilities:
+    - Connect with Gemini API
+    - Generate AI responses
+    - Handle configuration
+    - Provide safe AI calls
     """
 
     def __init__(self) -> None:
 
-        self._validate_settings()
-
-        self.client = genai.Client(
-            api_key=settings.GEMINI_API_KEY
-        )
-
+        self.client = None
         self.model = settings.GEMINI_MODEL
 
-    @staticmethod
-    def _validate_settings() -> None:
+
+    def _initialize_client(self) -> None:
         """
-        Validate required settings.
+        Lazy initialization.
+
+        Client will only connect when
+        Gemini is actually used.
         """
+
+        if self.client is not None:
+            return
 
         if not settings.GEMINI_API_KEY:
             raise ValueError(
                 "GEMINI_API_KEY is missing."
             )
 
-    @property
-    def model_name(self) -> str:
-        """
-        Return active Gemini model.
-        """
+        self.client = genai.Client(
+            api_key=settings.GEMINI_API_KEY
+        )
 
-        return self.model
 
-    def health_check(self) -> bool:
+    def is_ready(self) -> bool:
         """
-        Verify Gemini client.
+        Check Gemini availability.
         """
 
-        try:
-            return self.client is not None
+        return bool(
+            settings.GEMINI_API_KEY
+        )
 
-        except Exception:
-            return False
 
     def _build_config(
         self,
         *,
+        system_instruction: Optional[str] = None,
         temperature: Optional[float] = None,
         max_output_tokens: Optional[int] = None,
-        system_instruction: Optional[str] = None,
     ) -> GenerateContentConfig:
         """
-        Build generation configuration.
+        Build Gemini generation config.
         """
 
         return GenerateContentConfig(
+            system_instruction=system_instruction,
+
             temperature=(
                 temperature
                 if temperature is not None
                 else settings.TEMPERATURE
             ),
+
             max_output_tokens=(
                 max_output_tokens
                 if max_output_tokens is not None
                 else settings.MAX_OUTPUT_TOKENS
             ),
-            system_instruction=system_instruction,
         )
             def generate(
         self,
@@ -93,156 +91,82 @@ class GeminiClient:
         max_output_tokens: Optional[int] = None,
     ) -> str:
         """
-        Generate a text response from Gemini.
+        Generate response from Gemini.
         """
 
+        self._initialize_client()
+
         config = self._build_config(
+            system_instruction=system_instruction,
             temperature=temperature,
             max_output_tokens=max_output_tokens,
-            system_instruction=system_instruction,
         )
 
         try:
 
             response = self.client.models.generate_content(
-                model=self.model_name,
+                model=self.model,
                 contents=prompt,
                 config=config,
             )
 
+            if response is None:
+                return ""
+
+            if response.text:
+                return response.text.strip()
+
+            return ""
+
         except Exception as error:
 
             raise RuntimeError(
-                f"Gemini request failed: {error}"
+                f"Gemini generation failed: {error}"
             ) from error
 
-        if response is None:
-            return ""
 
-        if hasattr(response, "text") and response.text:
-            return response.text.strip()
-
-        try:
-
-            parts = response.candidates[0].content.parts
-
-            output = []
-
-            for part in parts:
-
-                if hasattr(part, "text") and part.text:
-                    output.append(part.text)
-
-            return "\n".join(output).strip()
-
-        except Exception:
-
-            return ""
-
-
-    def generate_with_system_prompt(
-        self,
-        *,
-        system_prompt: str,
-        user_prompt: str,
-    ) -> str:
-        """
-        Generate content using
-        system instruction.
-        """
-
-        return self.generate(
-            prompt=user_prompt,
-            system_instruction=system_prompt,
-        )
-            def safe_generate(
+    def safe_generate(
         self,
         prompt: str,
         *,
         system_instruction: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_output_tokens: Optional[int] = None,
     ) -> str:
         """
-        Safe wrapper around generate().
-        Never raises an exception.
+        Safe Gemini call.
+
+        Returns empty string
+        instead of crashing.
         """
 
         try:
+
             return self.generate(
-                prompt=prompt,
+                prompt,
                 system_instruction=system_instruction,
-                temperature=temperature,
-                max_output_tokens=max_output_tokens,
             )
 
         except Exception:
+
             return ""
 
 
-    def generate_json(
-        self,
-        prompt: str,
-        *,
-        system_instruction: Optional[str] = None,
-    ) -> dict:
+    def health_check(self) -> bool:
         """
-        Generate and parse JSON response.
-        """
-
-        import json
-
-        response = self.safe_generate(
-            prompt=prompt,
-            system_instruction=system_instruction,
-        )
-
-        if not response:
-            return {}
-
-        try:
-            return json.loads(response)
-
-        except json.JSONDecodeError:
-            return {
-                "raw_response": response
-            }
-
-
-    @staticmethod
-    def validate_response(response: str) -> bool:
-        """
-        Validate AI response.
-        """
-
-        if response is None:
-            return False
-
-        if not isinstance(response, str):
-            return False
-
-        if not response.strip():
-            return False
-
-        return True
-
-
-    def ping(self) -> bool:
-        """
-        Test Gemini connectivity.
+        Check Gemini connection.
         """
 
         try:
 
-            response = self.generate(
-                prompt="Reply with only one word: OK"
+            result = self.generate(
+                "Reply only: OK"
             )
 
-            return "OK" in response.upper()
+            return result.strip().upper() == "OK"
 
         except Exception:
+
             return False
 
 
-# Singleton Client
+# Global Gemini Client
 gemini_client = GeminiClient()
