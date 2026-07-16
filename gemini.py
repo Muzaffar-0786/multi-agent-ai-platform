@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Optional
 
 from google import genai
@@ -10,19 +12,17 @@ class GeminiClient:
     """
     Professional Gemini API Client.
 
-    Responsibilities:
-    - Initialize Gemini client
-    - Validate API key
-    - Generate AI responses
-    - Health check
+    Responsibilities
+    ----------------
+    • Initialize Gemini
+    • Validate configuration
+    • Generate AI responses
+    • Health checking
     """
 
     def __init__(self) -> None:
 
-        if not settings.GEMINI_API_KEY.strip():
-            raise ValueError(
-                "GEMINI_API_KEY is not configured."
-            )
+        self._validate_settings()
 
         self.client = genai.Client(
             api_key=settings.GEMINI_API_KEY
@@ -30,27 +30,48 @@ class GeminiClient:
 
         self.model = settings.GEMINI_MODEL
 
+    @staticmethod
+    def _validate_settings() -> None:
+        """
+        Validate required settings.
+        """
+
+        if not settings.GEMINI_API_KEY:
+            raise ValueError(
+                "GEMINI_API_KEY is missing."
+            )
+
+    @property
+    def model_name(self) -> str:
+        """
+        Return active Gemini model.
+        """
+
+        return self.model
+
     def health_check(self) -> bool:
         """
-        Verify that Gemini client
-        is initialized correctly.
+        Verify Gemini client.
         """
 
-        return self.client is not None
+        try:
+            return self.client is not None
 
-    def generate(
+        except Exception:
+            return False
+
+    def _build_config(
         self,
-        prompt: str,
         *,
-        system_instruction: Optional[str] = None,
         temperature: Optional[float] = None,
         max_output_tokens: Optional[int] = None,
-    ) -> str:
+        system_instruction: Optional[str] = None,
+    ) -> GenerateContentConfig:
         """
-        Generate response from Gemini.
+        Build generation configuration.
         """
 
-        config = GenerateContentConfig(
+        return GenerateContentConfig(
             temperature=(
                 temperature
                 if temperature is not None
@@ -63,43 +84,84 @@ class GeminiClient:
             ),
             system_instruction=system_instruction,
         )
+            def generate(
+        self,
+        prompt: str,
+        *,
+        system_instruction: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_output_tokens: Optional[int] = None,
+    ) -> str:
+        """
+        Generate a text response from Gemini.
+        """
+
+        config = self._build_config(
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+            system_instruction=system_instruction,
+        )
 
         try:
 
             response = self.client.models.generate_content(
-                model=self.model,
+                model=self.model_name,
                 contents=prompt,
                 config=config,
             )
-
-            if response is None:
-                return ""
-
-            if getattr(response, "text", None):
-                return response.text.strip()
-
-            return ""
 
         except Exception as error:
 
             raise RuntimeError(
                 f"Gemini request failed: {error}"
             ) from error
-          import json
-from typing import Any
+
+        if response is None:
+            return ""
+
+        if hasattr(response, "text") and response.text:
+            return response.text.strip()
+
+        try:
+
+            parts = response.candidates[0].content.parts
+
+            output = []
+
+            for part in parts:
+
+                if hasattr(part, "text") and part.text:
+                    output.append(part.text)
+
+            return "\n".join(output).strip()
+
+        except Exception:
+
+            return ""
 
 
-class GeminiClient:
-    ...
-    # Part 1 में लिखी गई methods यहीं रहेंगी
-    # (__init__, health_check, generate)
+    def generate_with_system_prompt(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+    ) -> str:
+        """
+        Generate content using
+        system instruction.
+        """
 
-
-    def safe_generate(
+        return self.generate(
+            prompt=user_prompt,
+            system_instruction=system_prompt,
+        )
+            def safe_generate(
         self,
         prompt: str,
         *,
-        system_instruction: str | None = None,
+        system_instruction: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_output_tokens: Optional[int] = None,
     ) -> str:
         """
         Safe wrapper around generate().
@@ -110,46 +172,47 @@ class GeminiClient:
             return self.generate(
                 prompt=prompt,
                 system_instruction=system_instruction,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens,
             )
 
-        except Exception as error:
-
-            return f"Generation Error: {error}"
+        except Exception:
+            return ""
 
 
     def generate_json(
         self,
         prompt: str,
         *,
-        system_instruction: str | None = None,
-    ) -> dict[str, Any]:
+        system_instruction: Optional[str] = None,
+    ) -> dict:
         """
-        Generate JSON response from Gemini.
+        Generate and parse JSON response.
         """
 
-        response = self.generate(
+        import json
+
+        response = self.safe_generate(
             prompt=prompt,
             system_instruction=system_instruction,
         )
+
+        if not response:
+            return {}
 
         try:
             return json.loads(response)
 
         except json.JSONDecodeError:
-
             return {
-                "success": False,
-                "raw_response": response,
-                "error": "Invalid JSON returned by Gemini.",
+                "raw_response": response
             }
 
 
-    def validate_response(
-        self,
-        response: str,
-    ) -> bool:
+    @staticmethod
+    def validate_response(response: str) -> bool:
         """
-        Validate Gemini response.
+        Validate AI response.
         """
 
         if response is None:
@@ -166,17 +229,20 @@ class GeminiClient:
 
     def ping(self) -> bool:
         """
-        Simple API connectivity check.
+        Test Gemini connectivity.
         """
 
         try:
 
-            result = self.generate(
-                "Reply with only the word: OK"
+            response = self.generate(
+                prompt="Reply with only one word: OK"
             )
 
-            return "OK" in result.upper()
+            return "OK" in response.upper()
 
         except Exception:
-
             return False
+
+
+# Singleton Client
+gemini_client = GeminiClient()
